@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { IconStatusItem, RippleGrid } from '@proj-airi/stage-ui/components'
-import { useAnalytics, useScrollToHash } from '@proj-airi/stage-ui/composables'
-import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
+import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import { SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
 
-const route = useRoute()
 const providersStore = useProvidersStore()
-const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 const { trackProviderClick } = useAnalytics()
 
 const {
@@ -42,26 +39,27 @@ const providerBlocksConfig = [
   },
 ]
 
-const providerBlocks = computed(() => {
-  let globalIndex = 0
-  return providerBlocksConfig.map(block => ({
+const activeTab = ref<'chat' | 'speech' | 'transcription'>('chat')
+
+const tabOptions = [
+  { label: 'Chat', value: 'chat', icon: 'i-solar:chat-square-like-bold-duotone' },
+  { label: 'Speech', value: 'speech', icon: 'i-solar:user-speak-rounded-bold-duotone' },
+  { label: 'Transcription', value: 'transcription', icon: 'i-solar:microphone-3-bold-duotone' },
+]
+
+const activeBlock = computed(() => {
+  const block = providerBlocksConfig.find(b => b.id === activeTab.value)
+  if (!block) return null
+  return {
     id: block.id,
     icon: block.icon,
     title: block.title,
     description: block.description,
-    providers: block.providersRef.value.map(provider => ({
+    providers: block.providersRef.value.map((provider, i) => ({
       ...provider,
-      renderIndex: globalIndex++,
+      renderIndex: i,
     })),
-  }))
-})
-
-useScrollToHash(() => route.hash, {
-  auto: true, // automatically react to route hash
-  offset: 16, // header + margin spacing
-  behavior: 'smooth', // smooth scroll animation
-  maxRetries: 15, // retry if target element isn't ready
-  retryDelay: 150, // wait between retries
+  }
 })
 </script>
 
@@ -83,29 +81,17 @@ useScrollToHash(() => route.hash, {
       </div>
     </div>
 
+    <SelectTab
+      v-model="activeTab"
+      :options="tabOptions"
+    />
+
     <RippleGrid
-      :sections="providerBlocks"
+      v-if="activeBlock"
+      :sections="[activeBlock]"
       :get-items="block => block.providers"
       :columns="{ default: 1, sm: 2, xl: 3 }"
-      :origin-index="lastClickedIndex"
-      @item-click="({ globalIndex }) => setLastClickedIndex(globalIndex)"
     >
-      <template #header="{ section: block }">
-        <div flex="~ row items-center gap-2">
-          <div :id="block.id" :class="block.icon" text="neutral-500 dark:neutral-400 4xl" />
-          <div>
-            <div>
-              <span text="neutral-300 dark:neutral-500 sm sm:base">{{ block.description }}</span>
-            </div>
-            <div flex text-nowrap text="2xl sm:3xl" font-normal>
-              <div>
-                {{ block.title }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-
       <template #item="{ item: provider }">
         <IconStatusItem
           :title="provider.localizedName || 'Unknown'"
